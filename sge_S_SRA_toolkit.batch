@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#$ -S /bin/bash
+#$ -l tmem=10G
+#$ -l h_vmem=10G
+#$ -l h_rt=168:00:00
+#$ -N SRAtoolkit
+#$ -cwd
+
+#export PATH=/share/apps/genomics/sratoolkit-2.9.6-1/bin:$PATH
+export PATH=/share/apps/genomics/sratoolkit.3.0.2/bin:$PATH
+
+
+
+echo ${JOB_NAME} "for "${sample}
+echo "=========="
+echo ""
+echo "Job "${JOB_ID} "starts "$(date)" on "$(hostname)
+echo ""
+##########
+
+
+
+echo "#####"
+echo "Downloading Data"
+echo "#####"
+
+
+#prefetch ${sample}
+#fastq-dump -I --split-files ${sample}
+fasterq-dump -O ${SGE_O_WORKDIR}/RAW -t ${SGE_O_WORKDIR}/RAW -p --split-files ${sample}
+
+
+
+##########
+echo ""
+echo "Job "${JOB_ID} "ends "$(date)
+
+

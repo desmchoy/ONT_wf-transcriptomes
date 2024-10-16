@@ -1,0 +1,38 @@
+#!/bin/bash
+
+#$ -S /bin/bash
+#$ -pe smp 4
+#$ -l tmem=5G
+#$ -l h_vmem=5G
+#$ -l h_rt=3:00:00
+#$ -N NanoPlot
+#$ -cwd
+
+source /share/apps/source_files/python/python-3.8.5.source
+
+
+echo ${JOB_NAME} "for "${sample}
+echo "=========="
+echo ""
+echo "Job "${JOB_ID} "starts "$(date)" on "$(hostname)
+echo ""
+##########
+
+
+mkdir ${SGE_O_WORKDIR}/NanoPlot/"${sample}"
+
+
+echo "#####"
+echo "Running NanoPlot for "${sample}
+echo "#####"
+
+
+#NanoPlot -t 4 --fastq ${SGE_O_WORKDIR}/RAW/"${sample}".fastq --outdir ${SGE_O_WORKDIR}/NanoPlot/"${sample}" --prefix "${sample}"_
+NanoPlot -t 4 --fastq ${SGE_O_WORKDIR}/RAW/"${sample}".fastq.gz --outdir ${SGE_O_WORKDIR}/NanoPlot/"${sample}" --prefix "${sample}"_
+
+
+##########
+echo ""
+echo "Job "${JOB_ID} "ends "$(date)
+
+

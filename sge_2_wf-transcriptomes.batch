@@ -1,0 +1,127 @@
+#!/bin/bash
+
+#$ -S /bin/bash
+#$ -pe smp 16
+#$ -l tmem=160G
+#$ -l h_vmem=160G
+#$ -l h_rt=12:00:00
+#$ -N wf-transcriptomes
+#$ -cwd
+
+#source /share/apps/source_files/python/python-3.6.4.source
+source /share/apps/source_files/python/python-3.8.5.source
+export PATH=/share/apps/jdk-15.0.2/bin:$PATH
+#export PATH=/share/apps/genomics/nextflow-local-22.10.0:$PATH
+export PATH=/share/apps/genomics/nextflow-local-23.04.2:$PATH
+export PATH=/share/apps/node-10.16.3/bin:$PATH
+export JAVA_HOME=''
+
+comparison=$(echo $input | sed 's/\./\t/g' | awk '{print $1}')
+condition_1=$(echo $comparison | sed 's/vs/\t/g' | awk '{print $1}')
+condition_2=$(echo $comparison | sed 's/vs/\t/g' | awk '{print $2}')
+condition_1_number=$(echo $input | sed 's/\./\t/g' | awk '{print $2}')
+condition_2_number=$(echo $input | sed 's/\./\t/g' | awk '{print $3}')
+
+
+echo ${JOB_NAME} "for "${comparison}
+echo "=========="
+echo ""
+echo "Job "${JOB_ID} "starts "$(date)" on "$(hostname)
+echo ""
+##########
+
+
+
+echo "#####"
+echo "Running ONT wf-transcriptomics pipeline for "${comparison}
+echo "#####"
+
+
+mkdir ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}
+cd ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}
+mkdir singularity_temp project input_dir results
+dummy_dir=${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/singularity_temp
+
+
+
+### Make sample sheet
+sample_sheet=${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/sample_sheet.csv
+echo "barcode,sample_id,alias,condition" >> ${sample_sheet}
+
+counter=1
+dummy_1=1
+while [[ $dummy_1 -le $condition_1_number ]] ; do
+        temp_sample=$(echo $input | sed 's/\./\t/g' | awk -v S=$(( $dummy_1 + 3 )) '{print $S}')
+        echo "barcode0"$counter","$temp_sample","$temp_sample",control" >> ${sample_sheet}
+#	echo $temp_sample","$temp_sample","$temp_sample",control" >> ${sample_sheet}
+        dummy_1=$(( $dummy_1 + 1 ))
+
+	mkdir ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir/barcode0${counter}
+	cd ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir/barcode0${counter}
+	temp_file=$(ls ${SGE_O_WORKDIR}/RAW | grep ${temp_sample})
+	ln -s ${SGE_O_WORKDIR}/RAW/${temp_file} ${temp_file}
+	cd ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}
+
+	counter=$(( ${counter} + 1 ))
+done
+
+dummy_2=1
+while [[ $dummy_2 -le $condition_2_number ]] ; do
+        temp_sample=$(echo $input | sed 's/\./\t/g' | awk -v S=$(( $dummy_2 + 3 + $condition_1_number )) '{print $S}')
+	echo "barcode0"$counter","$temp_sample","$temp_sample","$condition_2 >> ${sample_sheet}
+#	echo $temp_sample","$temp_sample","$temp_sample","$condition_2 >> ${sample_sheet}
+        dummy_2=$(( $dummy_2 + 1 ))
+
+	mkdir ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir/barcode0${counter}
+	cd ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir/barcode0${counter}
+	temp_file=$(ls ${SGE_O_WORKDIR}/RAW | grep ${temp_sample})
+	ln -s ${SGE_O_WORKDIR}/RAW/${temp_file} ${temp_file}
+	cd ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}
+
+	counter=$(( ${counter} + 1 ))
+	
+done
+
+
+
+### Make Config File
+echo "singularity.cacheDir = '"${dummy_dir}"'" >> ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/${comparison}.config
+#echo "singularity.envWhitelist = ['SINGULARITY_DISABLE_CACHE,TMP,TMPDIR,TEMPDIR,SINGULARITY_TMPDIR,SINGULARITY_CACHEDIR,SINGULARITY_LOCALCACHEDIR']" >> ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/${comparison}.config
+
+
+
+### Run Singularity container
+export SINGULARITY_DISABLE_CACHE=TRUE
+export TMP=${dummy_dir}
+export TMPDIR=${dummy_dir}
+export TEMPDIR=${dummy_dir}
+export SINGULARITY_TMPDIR=${dummy_dir}
+export SINGULARITY_CACHEDIR=${dummy_dir}
+export SINGULARITY_LOCALCACHEDIR=${dummy_dir}
+export NXF_SINGULARITY_CACHEDIR=${dummy_dir}
+
+#nextflow run epi2me-labs/wf-transcriptomes --help
+# -c ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/${comparison}.config \
+# --fastq ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir \
+# --fastq ${SGE_O_WORKDIR}/temp_dir \
+# --sample_sheet "${sample_sheet}" \
+
+nextflow run epi2me-labs/wf-transcriptomes \
+	-c ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/${comparison}.config \
+	-c ${SGE_O_WORKDIR}/wf-transcriptomes.config \
+	--de_analysis \
+	--direct_rna \
+	--fastq ${SGE_O_WORKDIR}/results_wf-transcriptomes/${comparison}/input_dir \
+	--ref_annotation /SAN/colcc/cellranger_references/refdata-gex-GRCh38-2020-A/genes/genes.gtf \
+	--ref_genome /SAN/colcc/cellranger_references/refdata-gex-GRCh38-2020-A/fasta/genome.fa \
+	--sample_sheet "${sample_sheet}" \
+	--out_dir ${SGE_O_WORKDIR}/results_wf-transcriptomes/"${comparison}"/results \
+	-profile singularity
+
+
+
+##########
+echo ""
+echo "Job "${JOB_ID} "ends "$(date)
+
+
